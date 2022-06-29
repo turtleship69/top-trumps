@@ -1,0 +1,25 @@
+Joined room {{ room }}
+<script>history.pushState({}, null, "/joined");</script>
+Room: {{ room }}
+Username: {{ username }}
+UUID: {{ uuid }}
+<script>
+    $(document).ready(function () {
+        // Connect to the Socket.IO server.
+        // The connection URL has the following format, relative to the current page:
+        //     http[s]://<domain>:<port>[/<namespace>]
+        var socket = io();
+        // Event handler for new connections.
+        // The callback function is invoked when a connection with the
+        // server is established.
+        socket.on('connect', function () {
+            //socket.emit('my_event', {data: 'I\'m connected!'});
+            socket.emit('join', { room: '{{ room }}' });
+        });
+        socket.on('queue_update', function (msg) {
+            var str = JSON.stringify(msg, null, 2);
+            document.getElementById("players").innerHTML = str;
+        });
+    });
+
+    <div id="players"></div>

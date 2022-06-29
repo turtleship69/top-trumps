@@ -1,0 +1,13 @@
+/.cache
+/.config
+/.flask_session
+/.replit
+/.upm
+/.vscode
+/notepad
+/poetry.lock
+/pyproject.toml
+/replit.nix
+/replit_zip_error_log.txt
+/venv
+/__pycache__
