@@ -5,6 +5,7 @@ from flask import Flask, send_from_directory, render_template, request, make_res
 from flask_socketio import SocketIO, emit, join_room, leave_room, close_room, rooms, disconnect
 from flask_session import Session
 from pprint import pprint
+import sqlite3
 
 app = Flask('app')
 app.config['SECRET_KEY'] = os.urandom(64)
@@ -15,6 +16,27 @@ socketio = SocketIO(app, async_mode=async_mode)
 thread = None
 thread_lock = Lock()
 Session(app)
+
+ 
+# connecting to the database
+connection = sqlite3.connect("players.db")
+# cursor
+crsr = connection.cursor()
+# print statement will execute if there are no errors
+print("Connected to the database")
+
+try:
+    crsr.execute("""CREATE TABLE players (
+    uuid CHAR(36) PRIMARY KEY,
+    room INTEGER,
+    username VARCHAR(30),
+    score INTEGER,
+    role CHAR(1));""")
+    print("Table created successfully")
+except sqlite3.OperationalError:
+    print("Table already exists")
+
+# uuid, room, username, score, role
 
 queue, players = {}, {}
 
@@ -36,25 +58,37 @@ def hello_world():
     pprint(players)
     print("queue: ")
     pprint(queue)
+    connection = sqlite3.connect("players.db")
+    crsr = connection.cursor()
+    crsr.execute("SELECT * FROM players")
+    print(crsr.fetchall())
     return render_template("home.html")
 
 #hosting
 @app.route('/host', methods=['POST', 'GET'])
 def host():
+    connection = sqlite3.connect("players.db")
+    # cursor
+    crsr = connection.cursor()
     if not session.get('uuid'):
         # Step 1. Visitor is unknown, give random ID
         session['uuid'] = str(uuid.uuid4())
-        players[session.get('uuid')] = {"room": pin(), "username": "", "score": 0, "role": "host"}
+        room = pin()
+        players[session.get('uuid')] = {"room": room, "username": "", "score": 0, "role": "h"}
+        crsr.execute(f"INSERT INTO players VALUES (\"{str(session.get('uuid'))}\", \"{str(room)}\", \"{str()}\", \"{str(0)}\", \"{'h'}\");")
         print(players[session.get('uuid')])
     # Step 4. Signed in, display data
     try:
         room = players[session.get('uuid')]["room"]
     except:
-        players[session.get('uuid')] = {"room": pin(), "username": "", "score": 0, "role": "host"}
+        room = pin()
+        players[session.get('uuid')] = {"room": room, "username": "", "score": 0, "role": "h"}
+        crsr.execute(f"INSERT INTO players VALUES (\"{str(session.get('uuid'))}\", \"{str(room)}\", \"{str()}\", \"{str(0)}\", \"{'h'}\");")
         room = players[session.get('uuid')]["room"]
     queue[str(room)]={"host":session.get('uuid')}
     print(queue)
     print(players)
+    connection.commit()
     return render_template("hostSignedIn.html", room=room, uuid = session.get('uuid'), domain = request.headers['Host'], async_mode=socketio.async_mode)
 
 
@@ -67,6 +101,9 @@ def joinpage():
     if not present, ask user for pin
     return joinRoom.html template with pin (and uuid as necessary) 
     """
+    connection = sqlite3.connect("players.db")
+    # cursor
+    crsr = connection.cursor()
     #check if request method is get
     if request.method == 'GET':
         if not session.get('uuid'):
@@ -87,8 +124,9 @@ def joinpage():
         except KeyError:
             queue[request.form.get('roomID')]["players"] = [session.get('uuid')]
         print(session.get("uuid"))
-        players[session.get('uuid')] = {"room": request.form.get('roomID'), "username": request.form.get('username'), "score": 0, "role": "player"}
+        players[session.get('uuid')] = {"room": request.form.get('roomID'), "username": request.form.get('username'), "score": 0, "role": "p"}
         room = request.form.get('roomID')
+        crsr.execute(f"INSERT INTO players VALUES (\"{str(session.get('uuid'))}\", \"{str(room)}\", \"{str(request.form.get('username'))}\", \"{str(0)}\", \"{'p'}\");")
         socketio.emit('queue_update', {'data': queue[str(room)]}, to=room)
         return render_template("joinedRoom.html", room=request.form.get("roomID"), uuid=session.get('uuid'), username=request.form.get('username'))
 
